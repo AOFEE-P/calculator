@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>คำนวณค่าสินค้า & VAT</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      min-height: 100vh;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input { -webkit-tap-highlight-color: transparent; }
+    button { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState } = React;
+const VAT_RATE = 0.07;
+
+function formatNumber(num) {
+  return num.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const inputStyle = {
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 8,
+  padding: "9px 10px",
+  color: "#f0f9ff",
+  fontSize: 15,
+  width: "100%",
+  boxSizing: "border-box",
+  outline: "none",
+};
+
+function App() {
+  const [items, setItems] = useState([{ id: 1, name: "", qty: "", price: "" }]);
+
+  const addItem = () => {
+    setItems([...items, { id: Date.now(), name: "", qty: "", price: "" }]);
+  };
+
+  const removeItem = (id) => {
+    if (items.length === 1) return;
+    setItems(items.filter((i) => i.id !== id));
+  };
+
+  const clearAll = () => {
+    setItems([{ id: Date.now(), name: "", qty: "", price: "" }]);
+  };
+
+  const updateItem = (id, field, value) => {
+    setItems(items.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
+  };
+
+  const computed = items.map((item) => {
+    const qty = item.qty === "" ? 0 : parseFloat(item.qty) || 0;
+    const price = item.price === "" ? 0 : parseFloat(item.price) || 0;
+    const total = qty * price;
+    const vatAmount = total - total / (1 + VAT_RATE);
+    const beforeVat = total / (1 + VAT_RATE);
+    return { ...item, qty, price, total, vatAmount, beforeVat };
+  });
+
+  const grandTotal = computed.reduce((sum, i) => sum + i.total, 0);
+  const grandVat = grandTotal - grandTotal / (1 + VAT_RATE);
+  const grandBeforeVat = grandTotal / (1 + VAT_RATE);
+  const hasData = computed.some((i) => i.total > 0);
+
+  return React.createElement("div", {
+    style: { minHeight: "100vh", padding: "24px 14px" }
+  },
+    React.createElement("div", { style: { maxWidth: 860, margin: "0 auto" } },
+
+      // Header
+      React.createElement("div", { style: { textAlign: "center", marginBottom: 28 } },
+        React.createElement("div", {
+          style: {
+            display: "inline-block",
+            background: "linear-gradient(90deg, #38bdf8, #818cf8)",
+            borderRadius: 10, padding: "5px 18px",
+            fontSize: 11, fontWeight: 700, letterSpacing: 2,
+            color: "#fff", marginBottom: 10, textTransform: "uppercase",
+          }
+        }, "ระบบคำนวณราคาสินค้า"),
+        React.createElement("h1", {
+          style: { fontSize: 26, fontWeight: 800, color: "#f0f9ff", letterSpacing: -1 }
+        }, "คำนวณค่าสินค้า & VAT"),
+        React.createElement("p", {
+          style: { color: "#94a3b8", marginTop: 6, fontSize: 13 }
+        }, "ราคาที่กรอกรวม VAT 7% แล้ว — ระบบจะแยกให้อัตโนมัติ")
+      ),
+
+      // Items
+      React.createElement("div", {
+        style: {
+          background: "rgba(255,255,255,0.05)",
+          borderRadius: 16,
+          border: "1px solid rgba(255,255,255,0.1)",
+          overflow: "hidden",
+          marginBottom: 20,
+        }
+      },
+        // Column headers
+        React.createElement("div", {
+          style: {
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1.5fr 1.5fr 36px",
+            background: "rgba(56,189,248,0.1)",
+            padding: "10px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+          }
+        },
+          ["ชื่อสินค้า","จำนวน","ราคา/หน่วย","รวม (฿)",""].map((h, i) =>
+            React.createElement("div", {
+              key: i,
+              style: {
+                fontSize: 11, fontWeight: 700, color: "#38bdf8",
+                textAlign: i >= 2 ? "right" : "left",
+              }
+            }, h)
+          )
+        ),
+
+        // Rows
+        computed.map((item, idx) =>
+          React.createElement("div", {
+            key: item.id,
+            style: {
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr 1.5fr 1.5fr 36px",
+              padding: "8px 14px",
+              borderBottom: "1px solid rgba(255,255,255,0.05)",
+              alignItems: "center",
+              gap: 4,
+              background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
+            }
+          },
+            React.createElement("input", {
+              placeholder: `สินค้า ${idx + 1}`,
+              value: item.name,
+              onChange: (e) => updateItem(item.id, "name", e.target.value),
+              style: inputStyle,
+            }),
+            React.createElement("input", {
+              type: "number", min: "0", placeholder: "0",
+              value: item.qty,
+              onChange: (e) => updateItem(item.id, "qty", e.target.value),
+              onFocus: (e) => e.target.select(),
+              style: { ...inputStyle, textAlign: "center" },
+            }),
+            React.createElement("input", {
+              type: "number", min: "0", placeholder: "0.00",
+              value: item.price,
+              onChange: (e) => updateItem(item.id, "price", e.target.value),
+              onFocus: (e) => e.target.select(),
+              style: { ...inputStyle, textAlign: "right" },
+            }),
+            React.createElement("div", {
+              style: {
+                textAlign: "right",
+                color: item.total > 0 ? "#f0f9ff" : "#475569",
+                fontWeight: item.total > 0 ? 600 : 400,
+                fontSize: 14,
+              }
+            }, item.total > 0 ? formatNumber(item.total) : "—"),
+            React.createElement("button", {
+              onClick: () => removeItem(item.id),
+              disabled: items.length === 1,
+              style: {
+                background: "none", border: "none",
+                cursor: items.length === 1 ? "not-allowed" : "pointer",
+                color: items.length === 1 ? "#334155" : "#ef4444",
+                fontSize: 20, padding: 0, textAlign: "center",
+              }
+            }, "×")
+          )
+        ),
+
+        // Buttons
+        React.createElement("div", { style: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 } },
+          React.createElement("button", {
+            onClick: addItem,
+            style: {
+              background: "none",
+              border: "1px dashed rgba(56,189,248,0.4)",
+              borderRadius: 8, color: "#38bdf8",
+              padding: "10px", cursor: "pointer",
+              fontSize: 14, fontWeight: 600, width: "100%",
+            }
+          }, "+ เพิ่มรายการสินค้า"),
+          React.createElement("button", {
+            onClick: clearAll,
+            style: {
+              background: "none",
+              border: "1px dashed rgba(239,68,68,0.35)",
+              borderRadius: 8, color: "#ef4444",
+              padding: "10px", cursor: "pointer",
+              fontSize: 14, fontWeight: 600, width: "100%",
+            }
+          }, "🗑 เคลียร์รายการทั้งหมด")
+        )
+      ),
+
+      // Summary
+      hasData && React.createElement("div", null,
+        // Per-item breakdown
+        React.createElement("div", {
+          style: {
+            background: "rgba(255,255,255,0.04)",
+            borderRadius: 14,
+            border: "1px solid rgba(255,255,255,0.08)",
+            marginBottom: 16,
+            overflow: "hidden",
+          }
+        },
+          React.createElement("div", {
+            style: {
+              padding: "10px 16px",
+              background: "rgba(129,140,248,0.1)",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              fontSize: 11, fontWeight: 700, color: "#818cf8", letterSpacing: 0.5,
+            }
+          }, "รายละเอียดแต่ละรายการ (แยก VAT)"),
+          computed.filter(i => i.total > 0).map(item =>
+            React.createElement("div", {
+              key: item.id,
+              style: {
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr",
+                padding: "10px 16px",
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
+                alignItems: "center", fontSize: 12,
+              }
+            },
+              React.createElement("div", { style: { color: "#cbd5e1", fontWeight: 500 } },
+                `${item.name || "สินค้า"} (${item.qty} × ${formatNumber(item.price)})`
+              ),
+              React.createElement("div", { style: { textAlign: "right", color: "#94a3b8" } },
+                React.createElement("div", { style: { fontSize: 10, color: "#64748b", marginBottom: 2 } }, "ก่อน VAT"),
+                formatNumber(item.beforeVat)
+              ),
+              React.createElement("div", { style: { textAlign: "right", color: "#fbbf24" } },
+                React.createElement("div", { style: { fontSize: 10, color: "#64748b", marginBottom: 2 } }, "VAT 7%"),
+                formatNumber(item.vatAmount)
+              ),
+              React.createElement("div", { style: { textAlign: "right", color: "#f0f9ff", fontWeight: 700 } },
+                React.createElement("div", { style: { fontSize: 10, color: "#64748b", marginBottom: 2 } }, "รวม"),
+                formatNumber(item.total)
+              )
+            )
+          )
+        ),
+
+        // Grand total
+        React.createElement("div", {
+          style: {
+            background: "linear-gradient(135deg, rgba(56,189,248,0.12), rgba(129,140,248,0.12))",
+            borderRadius: 14,
+            border: "1px solid rgba(56,189,248,0.25)",
+            padding: "18px 20px",
+            marginBottom: 24,
+          }
+        },
+          React.createElement("div", {
+            style: { fontSize: 11, color: "#94a3b8", fontWeight: 700, marginBottom: 12, letterSpacing: 1, textTransform: "uppercase" }
+          }, "สรุปยอดรวมทั้งหมด"),
+          React.createElement("div", {
+            style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }
+          },
+            React.createElement("span", { style: { fontSize: 14, color: "#94a3b8" } }, "ราคาก่อน VAT"),
+            React.createElement("span", { style: { fontSize: 15, fontWeight: 600, color: "#94a3b8" } }, `${formatNumber(grandBeforeVat)} บาท`)
+          ),
+          React.createElement("div", {
+            style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }
+          },
+            React.createElement("span", { style: { fontSize: 14, color: "#fbbf24" } }, "ภาษีมูลค่าเพิ่ม (VAT 7%)"),
+            React.createElement("span", { style: { fontSize: 15, fontWeight: 600, color: "#fbbf24" } }, `${formatNumber(grandVat)} บาท`)
+          ),
+          React.createElement("div", {
+            style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14 }
+          },
+            React.createElement("span", { style: { fontSize: 15, fontWeight: 700, color: "#f0f9ff" } }, "ยอดรวมสุทธิ (รวม VAT)"),
+            React.createElement("div", { style: { textAlign: "right" } },
+              React.createElement("div", { style: { fontSize: 28, fontWeight: 800, color: "#38bdf8", lineHeight: 1.1 } }, formatNumber(grandTotal)),
+              React.createElement("div", { style: { fontSize: 12, color: "#64748b", marginTop: 2 } }, "บาท")
+            )
+          )
+        )
+      ),
+
+      !hasData && React.createElement("div", {
+        style: { textAlign: "center", color: "#334155", fontSize: 14, padding: "28px 0" }
+      }, "กรอกจำนวนและราคาสินค้าเพื่อดูผลการคำนวณ")
+    )
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
